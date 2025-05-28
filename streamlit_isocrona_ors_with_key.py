@@ -12,7 +12,7 @@ st.title("Gerador de Isócronas com OpenRouteService (ORS)")
 minutes = st.slider("Tempo máximo (em minutos)", min_value=5, max_value=60, value=15)
 profile = st.selectbox("Modo de transporte", ["driving-car", "foot-walking", "cycling-regular"])
 
-center = [-2.5298, -44.3028]  # São Luís, MA (ajustado pelo mapa exibido)
+center = [-2.5298, -44.3028]  # São Luís, MA
 m = folium.Map(location=center, zoom_start=13)
 click_marker = folium.LatLngPopup()
 m.add_child(click_marker)
@@ -46,33 +46,34 @@ if result and result.get("last_clicked"):
             st.subheader("Resposta da API (debug):")
             st.json(data)
 
-            folium_map = folium.Map(location=[lat, lon], zoom_start=13)
+            feature = data["features"][0]
+            geometry_type = feature["geometry"]["type"]
+            coords = feature["geometry"]["coordinates"]
+            center_coords = feature["properties"]["center"]
+
+            folium_map = folium.Map(location=[center_coords[1], center_coords[0]], zoom_start=13)
             folium.Marker([lat, lon], popup="Ponto Inicial").add_to(folium_map)
 
-            for feature in data["features"]:
-                geometry_type = feature["geometry"]["type"]
-                coords = feature["geometry"]["coordinates"]
+            if geometry_type == "Polygon":
+                geojson = {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": coords
+                    }
+                }
+                folium.GeoJson(geojson, name="Isócrona").add_to(folium_map)
 
-                if geometry_type == "Polygon":
+            elif geometry_type == "MultiPolygon":
+                for poly in coords:
                     geojson = {
                         "type": "Feature",
                         "geometry": {
                             "type": "Polygon",
-                            "coordinates": coords
+                            "coordinates": poly
                         }
                     }
                     folium.GeoJson(geojson, name="Isócrona").add_to(folium_map)
-
-                elif geometry_type == "MultiPolygon":
-                    for poly in coords:
-                        geojson = {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": poly
-                            }
-                        }
-                        folium.GeoJson(geojson, name="Isócrona").add_to(folium_map)
 
             st.subheader("Isócronas reais via ORS")
             st_folium(folium_map, height=600, width=1000)
